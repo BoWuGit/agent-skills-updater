@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/common.sh
+source "$script_dir/../lib/common.sh"
+
+ref="${CODE_SIMPLIFIER_REF:-main}"
+url="${CODE_SIMPLIFIER_SKILL_URL:-https://raw.githubusercontent.com/anthropics/claude-plugins-official/$ref/plugins/code-simplifier/agents/code-simplifier.md}"
+source_dir="$(agent_skills_source_home)/code-simplifier"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/code-simplifier.XXXXXX")"
+trap 'rm -rf "$tmp_dir"' EXIT
+candidate="$tmp_dir/SKILL.md"
+
+curl \
+  --fail \
+  --silent \
+  --show-error \
+  --location \
+  --proto "${AGENT_SKILLS_CURL_PROTOCOLS:-=https}" \
+  --tlsv1.2 \
+  --max-time 30 \
+  "$url" \
+  --output "$candidate"
+
+if [[ "$(head -n 1 "$candidate")" != "---" ]] \
+  || ! grep -q '^name: code-simplifier$' "$candidate" \
+  || ! grep -q '^description: .\+' "$candidate" \
+  || [[ "$(grep -c '^---$' "$candidate")" -lt 2 ]]; then
+  printf 'Official code-simplifier failed validation; refusing to install it.\n' >&2
+  exit 1
+fi
+
+mkdir -p "$source_dir"
+install -m 0644 "$candidate" "$source_dir/SKILL.md"
+sha256="$(shasum -a 256 "$candidate" | awk '{print $1}')"
+cat >"$source_dir/.upstream-version" <<EOF
+source=$url
+ref=$ref
+checked_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+sha256=$sha256
+EOF
+
+printf 'code-simplifier (official Anthropic version)\n'
+printf '  source: %s\n' "$url"
+printf '  sha256: %s\n' "$sha256"
+link_skill_to_targets "$source_dir" code-simplifier

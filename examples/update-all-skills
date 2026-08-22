@@ -6,7 +6,7 @@
 #   - sim-use
 #   - OpenClaw autoreview
 #   - every non-deprecated Matt Pocock skill
-#   - this pack's cross-harness code-simplifier adaptation
+#   - Anthropic's official code-simplifier
 #
 # It runs every updater even after a failure and reserves exit status 2 for
 # upstream changes that require human review.

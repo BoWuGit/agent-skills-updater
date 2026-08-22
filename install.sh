@@ -74,16 +74,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 runtime_parent="$HOME/.local/libexec"
 runtime_root="$runtime_parent/agent-skills-updater"
 data_root="${AGENT_SKILLS_DATA_HOME:-$HOME/.local/share/agent-skills-updater}"
-canonical_skill="$data_root/skills/code-simplifier"
 local_bin="$HOME/.local/bin"
 config_dir="$HOME/.config/agent-skills-updater"
 config_file="$config_dir/config"
 update_link="$local_bin/update-all-skills"
 
-if [[ -e "$canonical_skill" && ! -f "$canonical_skill/.managed-by-agent-skills-updater" && "$force" -ne 1 ]]; then
-  printf 'Refusing to replace unmanaged skill: %s\nUse --force to replace it.\n' "$canonical_skill" >&2
-  exit 1
-fi
 if [[ -e "$update_link" || -L "$update_link" ]]; then
   existing_target="$(readlink "$update_link" 2>/dev/null || true)"
   if [[ "$existing_target" != "$runtime_root/bin/update-all-skills" && "$force" -ne 1 ]]; then
@@ -92,24 +87,17 @@ if [[ -e "$update_link" || -L "$update_link" ]]; then
   fi
 fi
 
-mkdir -p "$runtime_parent" "$data_root/skills" "$local_bin" "$config_dir"
+mkdir -p "$runtime_parent" "$data_root" "$local_bin" "$config_dir"
 staging="$(mktemp -d "$runtime_parent/.agent-skills-updater.XXXXXX")"
 trap 'rm -rf "$staging"' EXIT
 
-mkdir -p "$staging/bin" "$staging/skills"
+mkdir -p "$staging/bin"
 cp "$repo_root/bin/update-all-skills" "$staging/bin/"
 cp "$repo_root/bin/install-launch-agent" "$staging/bin/"
 cp "$repo_root/bin/run-scheduled-update" "$staging/bin/"
 cp -R "$repo_root/lib" "$staging/"
 cp -R "$repo_root/updaters" "$staging/"
 chmod 0755 "$staging/bin/"* "$staging/updaters/"*
-
-if [[ ! -d "$canonical_skill" || "$force" -eq 1 ]]; then
-  rm -rf "$canonical_skill"
-  cp -R "$repo_root/skills/code-simplifier" "$canonical_skill"
-  : >"$canonical_skill/.managed-by-agent-skills-updater"
-fi
-ln -s "$canonical_skill" "$staging/skills/code-simplifier"
 
 rm -f "$update_link"
 rm -rf "$runtime_root"

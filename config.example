@@ -13,4 +13,4 @@
 # export SIM_USE_REF="<commit-or-tag>"
 # export OPENCLAW_SKILLS_REF="<commit-or-tag>"
 # export MATTPOCOCK_SKILLS_REF="<commit-or-tag>"
-# export CODE_SIMPLIFIER_UPSTREAM_REF="<commit-or-tag>"
+# export CODE_SIMPLIFIER_REF="<commit-or-tag>"

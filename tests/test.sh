@@ -16,10 +16,6 @@ done < <(find \
   "$repo_root/examples" \
   -type f)
 bash -n "$repo_root/install.sh"
-python3 -m unittest discover -s "$repo_root/skills/code-simplifier/tests" -v
-python3 -m py_compile "$repo_root/skills/code-simplifier/scripts/update-upstream.py"
-rm -rf "$repo_root/skills/code-simplifier/scripts/__pycache__" \
-  "$repo_root/skills/code-simplifier/tests/__pycache__"
 
 make_command_fixture() {
   local name="$1"
@@ -89,6 +85,14 @@ description: Test fixture.
 ---
 # Thermo fixture
 EOF
+cat >"$fixture_root/code-simplifier.md" <<'EOF'
+---
+name: code-simplifier
+description: Official test fixture.
+model: opus
+---
+# Code simplifier fixture
+EOF
 
 sim_repo="$fixture_root/sim-use"
 create_git_fixture "$sim_repo"
@@ -138,7 +142,7 @@ AGENT_SKILLS_CURL_PROTOCOLS='=https,file' \
 SIM_USE_REPO_URL="$sim_repo" \
 OPENCLAW_SKILLS_REPO_URL="$openclaw_repo" \
 MATTPOCOCK_SKILLS_REPO_URL="$matt_repo" \
-AGENT_SKILLS_SKIP_CODE_SIMPLIFIER_CHECK=1 \
+CODE_SIMPLIFIER_SKILL_URL="file://$fixture_root/code-simplifier.md" \
   "$repo_root/install.sh" --no-schedule
 
 update_command="$pack_home/.local/bin/update-all-skills"
@@ -149,6 +153,7 @@ for target in "$pack_home/.agents/skills" "$pack_home/.claude/skills" "$pack_hom
   [[ -L "$target/autoreview" ]]
   [[ -L "$target/fixture-skill" ]]
   [[ -L "$target/code-simplifier" ]]
+  grep -q '^model: opus$' "$target/code-simplifier/SKILL.md"
   [[ ! -e "$target/old-skill" ]]
 done
 "$update_command" --dry-run >/dev/null

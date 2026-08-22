@@ -17,7 +17,7 @@ Install or update this pack's complete skill set in every detected harness:
   - sim-use
   - OpenClaw autoreview
   - all non-deprecated Matt Pocock skills
-  - the bundled cross-harness code-simplifier adaptation
+  - Anthropic's official code-simplifier
 
 Exit statuses:
   0  Every updater succeeded.
@@ -58,7 +58,6 @@ done
 script_dir="$(cd "$(dirname "$script_path")" && pwd)"
 root_dir="$(cd "$script_dir/.." && pwd)"
 updaters_dir="$root_dir/updaters"
-code_simplifier_updater="$root_dir/skills/code-simplifier/scripts/update-upstream.py"
 
 labels=()
 results=()
@@ -119,11 +118,10 @@ run_update \
   -1 \
   "$updaters_dir/update-mattpocock-skills"
 
-code_simplifier_command=(python3 "$code_simplifier_updater")
-if [[ "${AGENT_SKILLS_SKIP_CODE_SIMPLIFIER_CHECK:-0}" == "1" ]]; then
-  code_simplifier_command+=(--sync-only)
-fi
-run_update "code-simplifier" 2 "${code_simplifier_command[@]}"
+run_update \
+  "code-simplifier (official)" \
+  -1 \
+  "$updaters_dir/update-code-simplifier"
 
 printf '\nSummary\n'
 for ((i = 0; i < ${#labels[@]}; i++)); do

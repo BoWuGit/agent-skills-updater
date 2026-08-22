@@ -2,7 +2,7 @@
 
 An opinionated, batteries-included collection of the Agent Skills I use, with one-command installation across Claude Code, Codex, Pi, Amp, Cursor, and compatible harnesses.
 
-The pack fetches third-party skills from their official upstream repositories, installs this repository's cross-harness `code-simplifier` adaptation, and provides repeatable updates. On macOS it can also update everything daily with `launchd`, retained logs, and failure notifications.
+The pack fetches skills directly from their official upstream repositories and provides repeatable updates. On macOS it can also update everything daily with `launchd`, retained logs, and failure notifications.
 
 ## Included Skills
 
@@ -12,7 +12,7 @@ The pack fetches third-party skills from their official upstream repositories, i
 | [LY Corporation](https://github.com/lycorp-jp/sim-use) | `sim-use` |
 | [OpenClaw](https://github.com/openclaw/agent-skills) | `autoreview` |
 | [Matt Pocock](https://github.com/mattpocock/skills) | Every non-deprecated skill in the upstream collection |
-| This repository | A cross-harness adaptation of Anthropic's `code-simplifier` |
+| [Anthropic](https://github.com/anthropics/claude-plugins-official) | The official, unmodified `code-simplifier` |
 
 See [Skill sources and distribution strategy](docs/skill-sources.md) for provenance, licenses, and the supply-chain model.
 
@@ -93,8 +93,6 @@ The runner is fail-late: all independent sources are attempted even if one fails
 | `1` or another nonzero status | At least one updater failed | Failure alert |
 | `2` | An upstream change needs manual review | Review alert |
 
-`code-simplifier` deliberately uses status `2`: upstream Anthropic changes are diffed but never overwrite the bundled cross-harness adaptation.
-
 ## Automatic updates on macOS
 
 The installer uses macOS `launchd`, not cron. Calendar runs missed while the Mac sleeps are coalesced and run after wake.
@@ -137,7 +135,7 @@ Canonical source checkouts and logs are intentionally retained. Remove `~/.local
 
 ## 中文说明
 
-这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，并安装仓库内经过跨 Agent 调整的 `code-simplifier`。它会自动识别 Claude Code、Codex、Pi、Amp、Cursor；macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
+这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它会自动识别 Claude Code、Codex、Pi、Amp、Cursor；macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
 
 ## Development
 
@@ -147,4 +145,4 @@ Canonical source checkouts and logs are intentionally retained. Remove `~/.local
 
 ## License
 
-The automation code is MIT licensed. Third-party skills retain their upstream licenses. The bundled modified `code-simplifier` includes its Apache-2.0 license and modification notice.
+The automation code is MIT licensed. Third-party skills are fetched from their official sources at runtime and retain their upstream licenses.
