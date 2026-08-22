@@ -1,113 +1,143 @@
-# Agent Skills Updater
+# Agent Skills Pack & Updater
 
-A small macOS `launchd` wrapper for keeping Agent Skills up to date across Claude Code, Codex, Pi, Amp, and other harnesses.
+An opinionated, batteries-included collection of the Agent Skills I use, with one-command installation across Claude Code, Codex, Pi, Amp, Cursor, and compatible harnesses.
 
-It schedules an existing `update-all-skills` command, keeps timestamped logs, and sends a desktop notification only when an update fails or needs manual review.
+The pack fetches third-party skills from their official upstream repositories, installs this repository's cross-harness `code-simplifier` adaptation, and provides repeatable updates. On macOS it can also update everything daily with `launchd`, retained logs, and failure notifications.
 
-## Why this pattern
+## Included Skills
 
-- **Use `launchd`, not cron, on macOS.** A calendar job missed while the Mac sleeps is coalesced and run after wake.
-- **Fail late.** One broken upstream should not prevent unrelated skills from updating.
-- **Reserve exit status `2` for review.** Locally adapted skills should report upstream changes instead of overwriting local behavior blindly.
-- **Keep logs and actionable notifications.** Clicking a `terminal-notifier` alert opens the exact run log.
-- **Use argument arrays, not `eval`.** See [`examples/update-all-skills`](examples/update-all-skills).
-- **Do not require secrets.** Public Git repositories fetched over HTTPS need no token.
+| Skill set | What gets installed |
+| --- | --- |
+| [Cursor](https://github.com/cursor/plugins) | `thermo-nuclear-code-quality-review` |
+| [LY Corporation](https://github.com/lycorp-jp/sim-use) | `sim-use` |
+| [OpenClaw](https://github.com/openclaw/agent-skills) | `autoreview` |
+| [Matt Pocock](https://github.com/mattpocock/skills) | Every non-deprecated skill in the upstream collection |
+| This repository | A cross-harness adaptation of Anthropic's `code-simplifier` |
 
-## Requirements
+See [Skill sources and distribution strategy](docs/skill-sources.md) for provenance, licenses, and the supply-chain model.
 
-- macOS
-- An executable command that updates all of your skills
-- Optional: [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) for clickable notifications (`osascript` is the built-in fallback)
+## Quick start
+
+Requirements: Bash, Git, curl, and Python 3. No API key or GitHub token is required for the default public sources.
+
+```bash
+git clone https://github.com/BoWuGit/agent-skills-updater.git
+cd agent-skills-updater
+./install.sh
+```
+
+That command:
+
+1. installs the updater under `~/.local/libexec/agent-skills-updater`;
+2. exposes `~/.local/bin/update-all-skills`;
+3. fetches and installs the complete skill set;
+4. detects installed agent harnesses and links skills into them;
+5. on macOS, schedules a quiet daily update at 10:00 local time.
+
+Reload or restart your agent harnesses after the first installation.
+
+### Useful installation options
+
+```bash
+# Install skills but do not add the macOS daily schedule
+./install.sh --no-schedule
+
+# Schedule at 08:30 instead
+./install.sh --hour 8 --minute 30
+
+# Also install the sim-use CLI through Homebrew
+./install.sh --with-sim-use-binary
+
+# Explicitly replace conflicting same-name skills
+./install.sh --force
+```
+
+The installer never replaces an existing, unmanaged skill by default. It prints every conflict it skips. Use `--force` only after reviewing those conflicts.
+
+## Where skills are installed
+
+The canonical upstream checkouts live under:
+
+```text
+~/.local/share/agent-skills-updater/
+```
+
+`~/.agents/skills` is always targeted. Harness-specific targets are added when their configuration parent exists:
+
+| Harness | Skill directory |
+| --- | --- |
+| Claude Code | `~/.claude/skills` |
+| Codex | `~/.codex/skills` |
+| Amp / agents standard | `~/.config/agents/skills` |
+| Pi | `~/.pi/agent/skills` |
+| Cursor | `~/.cursor/skills` |
+
+Override the exact list in `~/.config/agent-skills-updater/config`:
+
+```bash
+export AGENT_SKILLS_TARGETS="$HOME/.claude/skills:$HOME/.codex/skills"
+```
+
+## Update manually
+
+```bash
+update-all-skills
+update-all-skills --dry-run
+```
+
+The runner is fail-late: all independent sources are attempted even if one fails.
+
+| Status | Meaning | Scheduled notification |
+| --- | --- | --- |
+| `0` | Every updater succeeded | None |
+| `1` or another nonzero status | At least one updater failed | Failure alert |
+| `2` | An upstream change needs manual review | Review alert |
+
+`code-simplifier` deliberately uses status `2`: upstream Anthropic changes are diffed but never overwrite the bundled cross-harness adaptation.
+
+## Automatic updates on macOS
+
+The installer uses macOS `launchd`, not cron. Calendar runs missed while the Mac sleeps are coalesced and run after wake.
+
+- LaunchAgent: `~/Library/LaunchAgents/io.github.agent-skills-updater.plist`
+- latest log: `~/Library/Logs/agent-skills-updater/latest.log`
+- latest status: `~/Library/Logs/agent-skills-updater/latest-status`
+- retention: 30 days
+
+Install [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) for clickable alerts; the built-in `osascript` fallback still displays notifications.
 
 ```bash
 brew install terminal-notifier
 ```
 
-## Install
-
-```bash
-git clone https://github.com/BoWuGit/agent-skills-updater.git
-cd agent-skills-updater
-./bin/install-launch-agent \
-  --hour 10 \
-  --minute 0 \
-  --update-command "$HOME/.local/bin/update-all-skills"
-```
-
-The installer copies the runtime wrapper to `~/.local/libexec`, generates `~/Library/LaunchAgents/io.github.agent-skills-updater.plist`, loads it, and sends a test notification.
-
-The update command must be an executable absolute path and should follow this exit-status contract:
-
-| Status | Meaning | Notification |
-| --- | --- | --- |
-| `0` | Success | None |
-| `1` (or any status except `0`/`2`) | Failure | Failure alert |
-| `2` | Upstream change needs manual review | Review alert |
-
-If you do not have an orchestrator yet, copy and customize the example:
-
-```bash
-install -m 0755 examples/update-all-skills "$HOME/.local/bin/update-all-skills"
-"$HOME/.local/bin/update-all-skills" --dry-run
-```
-
-## Operate it
-
-Run now:
+Run the scheduled wrapper immediately:
 
 ```bash
 "$HOME/.local/libexec/agent-skills-updater/run-scheduled-update"
 ```
 
-Inspect the latest result:
+## Configuration and pinning
 
-```bash
-cat "$HOME/Library/Logs/agent-skills-updater/latest-status"
-open "$HOME/Library/Logs/agent-skills-updater/latest.log"
-```
+`~/.config/agent-skills-updater/config` is a local shell configuration file. Use it to select targets, opt into conflict replacement, or pin upstream refs to commits/tags. See [`config.example`](config.example).
 
-Inspect the LaunchAgent:
+The defaults track upstream `main` branches so skills stay current. For sensitive or reproducible environments, pin revisions and review skill changes before using them.
 
-```bash
-launchctl print "gui/$(id -u)/io.github.agent-skills-updater"
-```
-
-Logs are retained for 30 days by default. Override runtime behavior through LaunchAgent environment variables if needed:
-
-- `SKILL_UPDATE_COMMAND`
-- `SKILL_UPDATE_PATH`
-- `SKILL_UPDATE_LOG_DIR`
-- `SKILL_UPDATE_LOG_RETENTION_DAYS`
-- `SKILL_UPDATE_NOTIFICATIONS=0` (useful in tests)
-
-## Uninstall
+## Uninstall automation
 
 ```bash
 launchctl bootout \
   "gui/$(id -u)" \
-  "$HOME/Library/LaunchAgents/io.github.agent-skills-updater.plist"
-rm "$HOME/Library/LaunchAgents/io.github.agent-skills-updater.plist"
+  "$HOME/Library/LaunchAgents/io.github.agent-skills-updater.plist" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/io.github.agent-skills-updater.plist"
+rm -f "$HOME/.local/bin/update-all-skills"
 rm -rf "$HOME/.local/libexec/agent-skills-updater"
 ```
 
-Logs are intentionally left in `~/Library/Logs/agent-skills-updater`.
-
-## Security notes
-
-An updater is a software supply-chain boundary. Prefer these practices in each skill-specific updater:
-
-1. Fetch over HTTPS and fail on network or TLS errors.
-2. Pin a branch, tag, commit, or recorded digest; print the installed revision.
-3. Validate expected files and metadata before replacing installed copies.
-4. Update atomically or install from a temporary directory.
-5. Do not overwrite local adaptations automatically; diff and return status `2`.
-6. Never put tokens, private repository URLs, usernames, or absolute home paths in committed files.
-
-This repository's scheduler intentionally does not interpret output or execute shell command strings. It invokes one configured executable directly and uses only its exit status.
+Canonical source checkouts and logs are intentionally retained. Remove `~/.local/share/agent-skills-updater` only if you no longer need the installed skill symlink targets.
 
 ## 中文说明
 
-这是一个 macOS 原生的 Agent Skills 自动更新外壳：每天通过 `launchd` 调用你已有的 `update-all-skills`，保留 30 天日志；成功时保持安静，失败或上游变化需要人工 review 时才发系统通知。安装命令见上方 **Install**，默认示例为每天本地时间 10:00。
+这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，并安装仓库内经过跨 Agent 调整的 `code-simplifier`。它会自动识别 Claude Code、Codex、Pi、Amp、Cursor；macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
 
 ## Development
 
@@ -117,4 +147,4 @@ This repository's scheduler intentionally does not interpret output or execute s
 
 ## License
 
-MIT
+The automation code is MIT licensed. Third-party skills retain their upstream licenses. The bundled modified `code-simplifier` includes its Apache-2.0 license and modification notice.

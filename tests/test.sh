@@ -3,16 +3,25 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runner="$repo_root/bin/run-scheduled-update"
-installer="$repo_root/bin/install-launch-agent"
-example="$repo_root/examples/update-all-skills"
+launch_installer="$repo_root/bin/install-launch-agent"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-for script in "$runner" "$installer" "$example"; do
+while IFS= read -r script; do
   bash -n "$script"
-done
+done < <(find \
+  "$repo_root/bin" \
+  "$repo_root/updaters" \
+  "$repo_root/lib" \
+  "$repo_root/examples" \
+  -type f)
+bash -n "$repo_root/install.sh"
+python3 -m unittest discover -s "$repo_root/skills/code-simplifier/tests" -v
+python3 -m py_compile "$repo_root/skills/code-simplifier/scripts/update-upstream.py"
+rm -rf "$repo_root/skills/code-simplifier/scripts/__pycache__" \
+  "$repo_root/skills/code-simplifier/tests/__pycache__"
 
-make_fixture() {
+make_command_fixture() {
   local name="$1"
   local status="$2"
   cat >"$tmp_dir/$name" <<EOF
@@ -23,7 +32,7 @@ EOF
   chmod +x "$tmp_dir/$name"
 }
 
-assert_run_status() {
+assert_scheduled_status() {
   local expected="$1"
   local command="$2"
   local logs="$tmp_dir/logs-$expected"
@@ -40,31 +49,113 @@ assert_run_status() {
   grep -q "Exit status: $expected" "$logs/latest.log"
 }
 
-make_fixture success 0
-make_fixture failure 1
-make_fixture attention 2
-assert_run_status 0 "$tmp_dir/success"
-assert_run_status 1 "$tmp_dir/failure"
-assert_run_status 2 "$tmp_dir/attention"
+make_command_fixture success 0
+make_command_fixture failure 1
+make_command_fixture attention 2
+assert_scheduled_status 0 "$tmp_dir/success"
+assert_scheduled_status 1 "$tmp_dir/failure"
+assert_scheduled_status 2 "$tmp_dir/attention"
 
-special_command="$tmp_dir/success & updater"
-cp "$tmp_dir/success" "$special_command"
-fake_home="$tmp_dir/home & test"
-HOME="$fake_home" "$installer" \
+launch_home="$tmp_dir/launch home & test"
+HOME="$launch_home" "$launch_installer" \
   --hour 7 \
   --minute 5 \
-  --update-command "$special_command" \
+  --update-command "$tmp_dir/success" \
   --no-load \
   --no-test-notification
 
-plist="$fake_home/Library/LaunchAgents/io.github.agent-skills-updater.plist"
-[[ -x "$fake_home/.local/libexec/agent-skills-updater/run-scheduled-update" ]]
+plist="$launch_home/Library/LaunchAgents/io.github.agent-skills-updater.plist"
+[[ -x "$launch_home/.local/libexec/agent-skills-updater/run-scheduled-update" ]]
 grep -q '<integer>7</integer>' "$plist"
 grep -q '<integer>5</integer>' "$plist"
-grep -q 'success &amp; updater' "$plist"
 if command -v plutil >/dev/null 2>&1; then
   plutil -lint "$plist" >/dev/null
 fi
+
+create_git_fixture() {
+  local repository="$1"
+  mkdir -p "$repository"
+  git -C "$repository" init -q -b main
+  git -C "$repository" config user.name test
+  git -C "$repository" config user.email test@example.invalid
+}
+
+fixture_root="$tmp_dir/upstreams"
+mkdir -p "$fixture_root"
+cat >"$fixture_root/thermo-SKILL.md" <<'EOF'
+---
+name: thermo-nuclear-code-quality-review
+description: Test fixture.
+---
+# Thermo fixture
+EOF
+
+sim_repo="$fixture_root/sim-use"
+create_git_fixture "$sim_repo"
+mkdir -p "$sim_repo/skills/sim-use/scripts"
+cat >"$sim_repo/skills/sim-use/SKILL.md" <<'EOF'
+---
+name: sim-use
+description: Test fixture.
+---
+EOF
+printf 'print("fixture")\n' >"$sim_repo/skills/sim-use/scripts/preflight.py"
+git -C "$sim_repo" add .
+git -C "$sim_repo" commit -qm fixture
+
+openclaw_repo="$fixture_root/openclaw"
+create_git_fixture "$openclaw_repo"
+mkdir -p "$openclaw_repo/skills/autoreview"
+cat >"$openclaw_repo/skills/autoreview/SKILL.md" <<'EOF'
+---
+name: autoreview
+description: Test fixture.
+---
+EOF
+git -C "$openclaw_repo" add .
+git -C "$openclaw_repo" commit -qm fixture
+
+matt_repo="$fixture_root/matt"
+create_git_fixture "$matt_repo"
+mkdir -p "$matt_repo/skills/engineering/fixture-skill" \
+  "$matt_repo/skills/deprecated/old-skill"
+cat >"$matt_repo/skills/engineering/fixture-skill/SKILL.md" <<'EOF'
+---
+name: fixture-skill
+description: Test fixture.
+---
+EOF
+cp "$matt_repo/skills/engineering/fixture-skill/SKILL.md" \
+  "$matt_repo/skills/deprecated/old-skill/SKILL.md"
+git -C "$matt_repo" add .
+git -C "$matt_repo" commit -qm fixture
+
+pack_home="$tmp_dir/pack-home"
+mkdir -p "$pack_home/.claude" "$pack_home/.codex"
+HOME="$pack_home" \
+THERMO_SKILL_URL="file://$fixture_root/thermo-SKILL.md" \
+AGENT_SKILLS_CURL_PROTOCOLS='=https,file' \
+SIM_USE_REPO_URL="$sim_repo" \
+OPENCLAW_SKILLS_REPO_URL="$openclaw_repo" \
+MATTPOCOCK_SKILLS_REPO_URL="$matt_repo" \
+AGENT_SKILLS_SKIP_CODE_SIMPLIFIER_CHECK=1 \
+  "$repo_root/install.sh" --no-schedule
+
+update_command="$pack_home/.local/bin/update-all-skills"
+[[ -x "$update_command" ]]
+for target in "$pack_home/.agents/skills" "$pack_home/.claude/skills" "$pack_home/.codex/skills"; do
+  [[ -L "$target/thermo-nuclear-code-quality-review" ]]
+  [[ -L "$target/sim-use" ]]
+  [[ -L "$target/autoreview" ]]
+  [[ -L "$target/fixture-skill" ]]
+  [[ -L "$target/code-simplifier" ]]
+  [[ ! -e "$target/old-skill" ]]
+done
+"$update_command" --dry-run >/dev/null
+
+# Reinstalling a managed pack is idempotent and does not require --force.
+HOME="$pack_home" "$repo_root/install.sh" --no-schedule --no-update >/dev/null
+[[ -x "$update_command" ]]
 
 if grep -R -E -n \
   --exclude='test.sh' \

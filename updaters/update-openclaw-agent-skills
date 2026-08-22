@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/common.sh
+source "$script_dir/../lib/common.sh"
+
+url="${OPENCLAW_SKILLS_REPO_URL:-https://github.com/openclaw/agent-skills.git}"
+ref="${OPENCLAW_SKILLS_REF:-main}"
+repository="${OPENCLAW_SKILLS_REPO:-$(agent_skills_source_home)/openclaw-agent-skills}"
+revision="$(update_shallow_checkout "$repository" "$url" "$ref")"
+skills=("$@")
+[[ "${#skills[@]}" -gt 0 ]] || skills=(autoreview)
+
+printf 'OpenClaw agent skills\n'
+printf '  source: %s\n' "$url"
+printf '  revision: %s\n' "$revision"
+for skill_name in "${skills[@]}"; do
+  source_dir="$repository/skills/$skill_name"
+  if [[ ! -f "$source_dir/SKILL.md" ]]; then
+    printf 'Unknown OpenClaw skill: %s\n' "$skill_name" >&2
+    exit 1
+  fi
+  link_skill_to_targets "$source_dir" "$skill_name"
+done

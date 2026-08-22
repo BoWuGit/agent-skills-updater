@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+config_file="${AGENT_SKILLS_CONFIG:-$HOME/.config/agent-skills-updater/config}"
+if [[ -f "$config_file" ]]; then
+  # This is an explicit local shell configuration owned by the current user.
+  # shellcheck source=/dev/null
+  source "$config_file"
+fi
+
+usage() {
+  cat <<'EOF'
+Usage: update-all-skills [--dry-run]
+
+Install or update this pack's complete skill set in every detected harness:
+  - thermo-nuclear-code-quality-review
+  - sim-use
+  - OpenClaw autoreview
+  - all non-deprecated Matt Pocock skills
+  - the bundled cross-harness code-simplifier adaptation
+
+Exit statuses:
+  0  Every updater succeeded.
+  1  At least one updater failed.
+  2  No failures, but an upstream change needs manual review.
+EOF
+}
+
+dry_run=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      dry_run=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown option: %s\n\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+script_path="${BASH_SOURCE[0]}"
+while [[ -L "$script_path" ]]; do
+  script_dir="$(cd "$(dirname "$script_path")" && pwd)"
+  link_target="$(readlink "$script_path")"
+  if [[ "$link_target" == /* ]]; then
+    script_path="$link_target"
+  else
+    script_path="$script_dir/$link_target"
+  fi
+done
+script_dir="$(cd "$(dirname "$script_path")" && pwd)"
+root_dir="$(cd "$script_dir/.." && pwd)"
+updaters_dir="$root_dir/updaters"
+code_simplifier_updater="$root_dir/skills/code-simplifier/scripts/update-upstream.py"
+
+labels=()
+results=()
+failed=0
+attention=0
+
+run_update() {
+  local label="$1"
+  local attention_code="$2"
+  local status
+  shift 2
+
+  printf '\n==> %s\n' "$label"
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf '    '
+    printf '%q ' "$@"
+    printf '\n'
+    labels+=("$label")
+    results+=("DRY RUN")
+    return
+  fi
+
+  if "$@"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  labels+=("$label")
+  if [[ "$status" -eq 0 ]]; then
+    results+=("OK")
+  elif [[ "$attention_code" -ge 0 && "$status" -eq "$attention_code" ]]; then
+    results+=("ATTENTION (exit $status)")
+    attention=$((attention + 1))
+  else
+    results+=("FAILED (exit $status)")
+    failed=$((failed + 1))
+  fi
+}
+
+run_update \
+  "thermo-nuclear-code-quality-review" \
+  -1 \
+  "$updaters_dir/update-thermo-nuclear-code-quality-review"
+
+run_update \
+  "sim-use" \
+  -1 \
+  "$updaters_dir/update-sim-use"
+
+run_update \
+  "OpenClaw agent skills (autoreview)" \
+  -1 \
+  "$updaters_dir/update-openclaw-agent-skills"
+
+run_update \
+  "Matt Pocock skills" \
+  -1 \
+  "$updaters_dir/update-mattpocock-skills"
+
+code_simplifier_command=(python3 "$code_simplifier_updater")
+if [[ "${AGENT_SKILLS_SKIP_CODE_SIMPLIFIER_CHECK:-0}" == "1" ]]; then
+  code_simplifier_command+=(--sync-only)
+fi
+run_update "code-simplifier" 2 "${code_simplifier_command[@]}"
+
+printf '\nSummary\n'
+for ((i = 0; i < ${#labels[@]}; i++)); do
+  printf '  %-42s %s\n' "${labels[$i]}" "${results[$i]}"
+done
+
+if [[ "$failed" -gt 0 ]]; then
+  printf '\n%d updater(s) failed.\n' "$failed" >&2
+  exit 1
+fi
+if [[ "$attention" -gt 0 ]]; then
+  printf '\n%d updater(s) require manual review.\n' "$attention" >&2
+  exit 2
+fi
+
+if [[ "$dry_run" -eq 1 ]]; then
+  printf '\nDry run completed; no updater was executed.\n'
+else
+  printf '\nAll skills updated successfully. Restart or reload agent harnesses as needed.\n'
+fi

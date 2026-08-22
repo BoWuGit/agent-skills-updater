@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/common.sh
+source "$script_dir/../lib/common.sh"
+
+url="${SIM_USE_REPO_URL:-https://github.com/lycorp-jp/sim-use.git}"
+ref="${SIM_USE_REF:-main}"
+repository="${SIM_USE_REPO:-$(agent_skills_source_home)/sim-use}"
+revision="$(update_shallow_checkout "$repository" "$url" "$ref")"
+source_dir="$repository/skills/sim-use"
+
+if [[ ! -f "$source_dir/SKILL.md" ]]; then
+  printf 'sim-use checkout has no skills/sim-use/SKILL.md\n' >&2
+  exit 1
+fi
+
+python3 -m py_compile "$source_dir/scripts/preflight.py"
+find "$source_dir" -type d -name __pycache__ -prune -exec rm -rf {} +
+
+printf 'sim-use\n'
+printf '  source: %s\n' "$url"
+printf '  revision: %s\n' "$revision"
+link_skill_to_targets "$source_dir" sim-use
+
+if command -v sim-use >/dev/null 2>&1; then
+  printf '  binary: %s (%s)\n' "$(command -v sim-use)" "$(sim-use --version 2>/dev/null || printf 'unknown version')"
+else
+  printf '  warning: sim-use CLI is not installed; see README installation options.\n' >&2
+fi

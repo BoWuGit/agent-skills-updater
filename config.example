@@ -1,0 +1,16 @@
+# Optional local overrides for agent-skills-updater.
+# The installer copies this file to ~/.config/agent-skills-updater/config once.
+
+# Colon-separated skill roots. By default the updater always uses ~/.agents/skills
+# and auto-detects Claude Code, Codex, Amp, Pi, and Cursor configuration roots.
+# export AGENT_SKILLS_TARGETS="$HOME/.claude/skills:$HOME/.codex/skills"
+
+# Replace same-name skills that were not installed by this pack.
+# Disabled by default to avoid destroying local work.
+# export AGENT_SKILLS_FORCE=1
+
+# Pin upstream refs for reproducible installation instead of tracking main.
+# export SIM_USE_REF="<commit-or-tag>"
+# export OPENCLAW_SKILLS_REF="<commit-or-tag>"
+# export MATTPOCOCK_SKILLS_REF="<commit-or-tag>"
+# export CODE_SIMPLIFIER_UPSTREAM_REF="<commit-or-tag>"

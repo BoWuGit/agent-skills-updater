@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/common.sh
+source "$script_dir/../lib/common.sh"
+
+url="${MATTPOCOCK_SKILLS_REPO_URL:-https://github.com/mattpocock/skills.git}"
+ref="${MATTPOCOCK_SKILLS_REF:-main}"
+repository="${MATTPOCOCK_SKILLS_REPO:-$(agent_skills_source_home)/mattpocock-skills}"
+revision="$(update_shallow_checkout "$repository" "$url" "$ref")"
+
+printf 'Matt Pocock skills\n'
+printf '  source: %s\n' "$url"
+printf '  revision: %s\n' "$revision"
+
+installed=0
+while IFS= read -r -d '' skill_md; do
+  source_dir="$(dirname "$skill_md")"
+  link_skill_to_targets "$source_dir" "$(basename "$source_dir")"
+  installed=$((installed + 1))
+done < <(find "$repository/skills" -name SKILL.md -not -path '*/deprecated/*' -print0)
+
+printf '  installed: %d non-deprecated skill(s)\n' "$installed"
