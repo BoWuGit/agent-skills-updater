@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Example fail-late orchestrator. Replace the updater commands with your own.
+set -uo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: update-all-skills [--dry-run]
+
+Run every configured skill updater and print a single summary.
+Exit statuses:
+  0  Every updater succeeded.
+  1  At least one updater failed.
+  2  No failures, but at least one upstream change needs manual review.
+EOF
+}
+
+dry_run=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      dry_run=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown option: %s\n\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+labels=()
+results=()
+failed=0
+attention=0
+
+run_update() {
+  local label="$1"
+  local attention_code="$2"
+  local status
+  shift 2
+
+  printf '\n==> %s\n' "$label"
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf '    '
+    printf '%q ' "$@"
+    printf '\n'
+    labels+=("$label")
+    results+=("DRY RUN")
+    return
+  fi
+
+  if "$@"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  labels+=("$label")
+  if [[ "$status" -eq 0 ]]; then
+    results+=("OK")
+  elif [[ "$attention_code" -ge 0 && "$status" -eq "$attention_code" ]]; then
+    results+=("ATTENTION (exit $status)")
+    attention=$((attention + 1))
+  else
+    results+=("FAILED (exit $status)")
+    failed=$((failed + 1))
+  fi
+}
+
+# Commands are argument arrays, not strings passed to eval. This preserves
+# quoting and avoids command-injection surprises. Customize these examples.
+run_update \
+  "thermo-nuclear-code-quality-review" \
+  -1 \
+  "${THERMO_SKILL_UPDATER:-$HOME/.local/bin/update-thermo-nuclear-code-quality-review}" \
+  --apply
+
+run_update \
+  "sim-use" \
+  -1 \
+  "${SIM_USE_SKILL_UPDATER:-$HOME/.local/bin/update-sim-use-skill}"
+
+run_update \
+  "OpenClaw agent skills" \
+  -1 \
+  "${OPENCLAW_SKILLS_UPDATER:-$HOME/.local/bin/update-openclaw-agent-skills}"
+
+run_update \
+  "Matt Pocock skills" \
+  -1 \
+  "${MATTPOCOCK_SKILLS_UPDATER:-$HOME/.local/bin/update-mattpocock-skills}"
+
+# Exit 2 is reserved for an upstream change that should not be merged blindly.
+run_update \
+  "locally adapted skill" \
+  2 \
+  "${PYTHON_BIN:-python3}" \
+  "${ADAPTED_SKILL_UPDATER:-$HOME/.local/share/my-skill/update-upstream.py}"
+
+printf '\nSummary\n'
+for ((i = 0; i < ${#labels[@]}; i++)); do
+  printf '  %-42s %s\n' "${labels[$i]}" "${results[$i]}"
+done
+
+if [[ "$failed" -gt 0 ]]; then
+  printf '\n%d updater(s) failed.\n' "$failed" >&2
+  exit 1
+fi
+if [[ "$attention" -gt 0 ]]; then
+  printf '\n%d updater(s) require manual review.\n' "$attention" >&2
+  exit 2
+fi
+
+if [[ "$dry_run" -eq 1 ]]; then
+  printf '\nDry run completed; no updater was executed.\n'
+else
+  printf '\nAll skills updated successfully. Restart or reload agent harnesses as needed.\n'
+fi

@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+export PATH="${SKILL_UPDATE_PATH:-$HOME/.local/bin:/opt/homebrew/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
+
+update_command="${SKILL_UPDATE_COMMAND:-$HOME/.local/bin/update-all-skills}"
+log_dir="${SKILL_UPDATE_LOG_DIR:-$HOME/Library/Logs/agent-skills-updater}"
+retention_days="${SKILL_UPDATE_LOG_RETENTION_DAYS:-30}"
+notifications_enabled="${SKILL_UPDATE_NOTIFICATIONS:-1}"
+notification_group="agent-skills-updater"
+
+notify() {
+  local title="$1"
+  local message="$2"
+  local log_file="${3:-}"
+
+  [[ "$notifications_enabled" == "1" ]] || return 0
+
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    local args=(-title "$title" -message "$message" -group "$notification_group")
+    if [[ -n "$log_file" ]]; then
+      args+=(-open "file://$log_file")
+    fi
+    terminal-notifier "${args[@]}" >/dev/null
+    return
+  fi
+
+  if [[ -x /usr/bin/osascript ]]; then
+    /usr/bin/osascript - "$title" "$message" <<'APPLESCRIPT' >/dev/null
+on run argv
+  display notification (item 2 of argv) with title (item 1 of argv)
+end run
+APPLESCRIPT
+    return
+  fi
+
+  printf 'notification unavailable: %s: %s\n' "$title" "$message" >&2
+}
+
+if [[ "${1:-}" == "--test-notification" ]]; then
+  notify \
+    "Agent Skills updater test" \
+    "Notifications are working. Only failures and review-required results are reported."
+  exit 0
+fi
+if [[ $# -gt 0 ]]; then
+  printf 'Usage: %s [--test-notification]\n' "$(basename "$0")" >&2
+  exit 2
+fi
+
+mkdir -p "$log_dir"
+timestamp="$(date '+%Y-%m-%d_%H-%M-%S')"
+log_file="$log_dir/update-$timestamp.log"
+latest_log="$log_dir/latest.log"
+
+{
+  printf 'Started: %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+  printf 'Command: %s\n\n' "$update_command"
+} >"$log_file"
+
+if [[ ! -x "$update_command" ]]; then
+  printf 'Update command is missing or not executable: %s\n' "$update_command" >>"$log_file"
+  status=1
+elif "$update_command" >>"$log_file" 2>&1; then
+  status=0
+else
+  status=$?
+fi
+
+{
+  printf '\nFinished: %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+  printf 'Exit status: %d\n' "$status"
+} >>"$log_file"
+
+ln -sfn "$log_file" "$latest_log"
+printf '%d\n' "$status" >"$log_dir/latest-status"
+find "$log_dir" -type f -name 'update-*.log' -mtime "+$retention_days" -delete 2>/dev/null || true
+
+case "$status" in
+  0)
+    ;;
+  2)
+    notify \
+      "Agent Skills need review" \
+      "An upstream change needs manual review. Click to open the log." \
+      "$log_file"
+    ;;
+  *)
+    notify \
+      "Agent Skills update failed" \
+      "Exit status: $status. Click to open the log." \
+      "$log_file"
+    ;;
+esac
+
+exit "$status"

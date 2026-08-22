@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: install-launch-agent [options]
+
+Install a macOS LaunchAgent that runs an existing update-all-skills command.
+
+Options:
+  --hour H                 Daily run hour, 0-23 (default: 10).
+  --minute M               Daily run minute, 0-59 (default: 0).
+  --update-command PATH    Absolute updater path (default: command lookup).
+  --no-test-notification   Do not send a test notification after installation.
+  --no-load                Write files without loading the LaunchAgent (for tests).
+  -h, --help               Show this help.
+EOF
+}
+
+hour=10
+minute=0
+update_command="$(command -v update-all-skills 2>/dev/null || true)"
+test_notification=1
+load_agent=1
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --hour)
+      hour="${2:-}"
+      shift
+      ;;
+    --minute)
+      minute="${2:-}"
+      shift
+      ;;
+    --update-command)
+      update_command="${2:-}"
+      shift
+      ;;
+    --no-test-notification)
+      test_notification=0
+      ;;
+    --no-load)
+      load_agent=0
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown option: %s\n\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [[ ! "$hour" =~ ^[0-9]+$ ]] || ((10#$hour > 23)); then
+  printf 'Invalid hour: %s\n' "$hour" >&2
+  exit 2
+fi
+if [[ ! "$minute" =~ ^[0-9]+$ ]] || ((10#$minute > 59)); then
+  printf 'Invalid minute: %s\n' "$minute" >&2
+  exit 2
+fi
+if [[ -z "$update_command" || "$update_command" != /* || ! -x "$update_command" ]]; then
+  printf 'Updater must be an executable absolute path: %s\n' "${update_command:-<not found>}" >&2
+  exit 2
+fi
+
+xml_escape() {
+  local value="$1"
+  value="${value//&/&amp;}"
+  value="${value//</&lt;}"
+  value="${value//>/&gt;}"
+  printf '%s' "$value"
+}
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source_runner="$script_dir/run-scheduled-update"
+install_dir="$HOME/.local/libexec/agent-skills-updater"
+runner="$install_dir/run-scheduled-update"
+log_dir="$HOME/Library/Logs/agent-skills-updater"
+launch_agents_dir="$HOME/Library/LaunchAgents"
+label="io.github.agent-skills-updater"
+plist="$launch_agents_dir/$label.plist"
+
+mkdir -p "$install_dir" "$log_dir" "$launch_agents_dir"
+install -m 0755 "$source_runner" "$runner"
+
+escaped_runner="$(xml_escape "$runner")"
+escaped_command="$(xml_escape "$update_command")"
+escaped_log_dir="$(xml_escape "$log_dir")"
+cat >"$plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$label</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$escaped_runner</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SKILL_UPDATE_COMMAND</key>
+    <string>$escaped_command</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>$((10#$hour))</integer>
+    <key>Minute</key>
+    <integer>$((10#$minute))</integer>
+  </dict>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>LowPriorityIO</key>
+  <true/>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>$escaped_log_dir/launchd.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>$escaped_log_dir/launchd.stderr.log</string>
+</dict>
+</plist>
+EOF
+
+if command -v plutil >/dev/null 2>&1; then
+  plutil -lint "$plist" >/dev/null
+fi
+
+if [[ "$load_agent" -eq 1 ]]; then
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    printf 'LaunchAgents are only available on macOS.\n' >&2
+    exit 1
+  fi
+  domain="gui/$(id -u)"
+  launchctl bootout "$domain" "$plist" >/dev/null 2>&1 || true
+  launchctl bootstrap "$domain" "$plist"
+  launchctl enable "$domain/$label"
+  if [[ "$test_notification" -eq 1 ]]; then
+    "$runner" --test-notification
+  fi
+fi
+
+printf 'Installed %s\n' "$plist"
+printf 'Schedule: daily at %02d:%02d local time\n' "$((10#$hour))" "$((10#$minute))"
+printf 'Updater: %s\n' "$update_command"
+printf 'Logs: %s\n' "$log_dir"
