@@ -1,6 +1,6 @@
 # Agent Skills Pack & Updater
 
-An opinionated, batteries-included collection of the Agent Skills I use, with one-command installation across Claude Code, Codex, Pi, Amp, Cursor, and compatible harnesses.
+An opinionated, batteries-included collection of the Agent Skills I use, with one-command installation across Claude Code, Codex, DeepSeek Harness (DSH), Pi, Amp, Cursor, and compatible harnesses.
 
 The pack fetches skills directly from their official upstream repositories and provides repeatable updates. On macOS it can also update everything daily with `launchd`, retained logs, and failure notifications.
 
@@ -71,6 +71,9 @@ The canonical upstream checkouts live under:
 | Amp / agents standard | `~/.config/agents/skills` |
 | Pi | `~/.pi/agent/skills` |
 | Cursor | `~/.cursor/skills` |
+| DeepSeek Harness (DSH) | `$DSH_HOME/skills` or `~/.dsh/skills` |
+
+DSH also discovers the always-installed `~/.agents/skills` compatibility root. Its native root is linked as well when `$DSH_HOME` (or the default `~/.dsh`) exists, giving DSH its higher-priority `user-dsh` source and supporting custom DSH homes. Declare a custom `DSH_HOME` in the updater config—not only in interactive shell startup—so the macOS LaunchAgent sees it.
 
 Override the exact list in `~/.config/agent-skills-updater/config`:
 
@@ -135,7 +138,7 @@ Canonical source checkouts and logs are intentionally retained. Remove `~/.local
 
 ## 中文说明
 
-这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它会自动识别 Claude Code、Codex、Pi、Amp、Cursor；macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
+这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它会自动识别 Claude Code、Codex、DeepSeek Harness（DSH）、Pi、Amp、Cursor；DSH 默认安装到 `~/.dsh/skills`，也支持 `$DSH_HOME`。macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
 
 ## Development
 

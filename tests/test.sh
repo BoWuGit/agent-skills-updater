@@ -135,8 +135,9 @@ git -C "$matt_repo" add .
 git -C "$matt_repo" commit -qm fixture
 
 pack_home="$tmp_dir/pack-home"
-mkdir -p "$pack_home/.claude" "$pack_home/.codex"
+mkdir -p "$pack_home/.claude" "$pack_home/.codex" "$pack_home/.dsh"
 HOME="$pack_home" \
+DSH_HOME='   ' \
 THERMO_SKILL_URL="file://$fixture_root/thermo-SKILL.md" \
 AGENT_SKILLS_CURL_PROTOCOLS='=https,file' \
 SIM_USE_REPO_URL="$sim_repo" \
@@ -147,7 +148,11 @@ CODE_SIMPLIFIER_SKILL_URL="file://$fixture_root/code-simplifier.md" \
 
 update_command="$pack_home/.local/bin/update-all-skills"
 [[ -x "$update_command" ]]
-for target in "$pack_home/.agents/skills" "$pack_home/.claude/skills" "$pack_home/.codex/skills"; do
+for target in \
+  "$pack_home/.agents/skills" \
+  "$pack_home/.claude/skills" \
+  "$pack_home/.codex/skills" \
+  "$pack_home/.dsh/skills"; do
   [[ -L "$target/thermo-nuclear-code-quality-review" ]]
   [[ -L "$target/sim-use" ]]
   [[ -L "$target/autoreview" ]]
@@ -157,6 +162,21 @@ for target in "$pack_home/.agents/skills" "$pack_home/.claude/skills" "$pack_hom
   [[ ! -e "$target/old-skill" ]]
 done
 "$update_command" --dry-run >/dev/null
+
+# A nonblank DSH_HOME replaces the default DSH root, and ~/ expands like dsh.
+custom_dsh_home="$pack_home/custom-dsh-home"
+mkdir -p "$custom_dsh_home"
+custom_targets="$(
+  HOME="$pack_home" DSH_HOME='~/custom-dsh-home' bash -c '
+    source "$1/lib/common.sh"
+    agent_skill_targets
+  ' _ "$repo_root"
+)"
+printf '%s\n' "$custom_targets" | grep -Fxq "$custom_dsh_home/skills"
+if printf '%s\n' "$custom_targets" | grep -Fxq "$pack_home/.dsh/skills"; then
+  echo 'Default DSH target remained active beside a custom DSH_HOME.' >&2
+  exit 1
+fi
 
 # Reinstalling a managed pack is idempotent and does not require --force.
 HOME="$pack_home" "$repo_root/install.sh" --no-schedule --no-update >/dev/null

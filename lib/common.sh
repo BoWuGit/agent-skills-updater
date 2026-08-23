@@ -18,12 +18,23 @@ agent_skill_targets() {
 
   # ~/.agents is the cross-harness baseline. Add harness-specific roots only
   # when their parent configuration directory already exists.
+  local dsh_home="$HOME/.dsh"
+  if [[ -n "${DSH_HOME:-}" && "${DSH_HOME//[[:space:]]/}" != "" ]]; then
+    dsh_home="$DSH_HOME"
+  fi
+  if [[ "$dsh_home" == "~" ]]; then
+    dsh_home="$HOME"
+  elif [[ "$dsh_home" == "~/"* ]]; then
+    dsh_home="$HOME/${dsh_home#\~/}"
+  fi
+
   printf '%s\n' "$HOME/.agents/skills"
   [[ -d "$HOME/.claude" ]] && printf '%s\n' "$HOME/.claude/skills"
   [[ -d "$HOME/.codex" ]] && printf '%s\n' "$HOME/.codex/skills"
   [[ -d "$HOME/.config/agents" ]] && printf '%s\n' "$HOME/.config/agents/skills"
   [[ -d "$HOME/.pi/agent" ]] && printf '%s\n' "$HOME/.pi/agent/skills"
   [[ -d "$HOME/.cursor" ]] && printf '%s\n' "$HOME/.cursor/skills"
+  [[ -d "$dsh_home" ]] && printf '%s\n' "$dsh_home/skills"
 }
 
 link_skill_to_targets() {

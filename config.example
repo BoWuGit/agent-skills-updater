@@ -2,7 +2,11 @@
 # The installer copies this file to ~/.config/agent-skills-updater/config once.
 
 # Colon-separated skill roots. By default the updater always uses ~/.agents/skills
-# and auto-detects Claude Code, Codex, Amp, Pi, and Cursor configuration roots.
+# and auto-detects Claude Code, Codex, DSH, Amp, Pi, and Cursor configuration roots.
+# DSH uses $DSH_HOME/skills when DSH_HOME is nonblank, otherwise ~/.dsh/skills.
+# Put a custom DSH_HOME here so the launchd updater sees it; LaunchAgents do not
+# inherit variables from your interactive shell.
+# export DSH_HOME="$HOME/.dsh"
 # export AGENT_SKILLS_TARGETS="$HOME/.claude/skills:$HOME/.codex/skills"
 
 # Replace same-name skills that were not installed by this pack.
