@@ -8,8 +8,7 @@
 #   - every non-deprecated Matt Pocock skill
 #   - Anthropic's official code-simplifier
 #
-# It runs every updater even after a failure and reserves exit status 2 for
-# upstream changes that require human review.
+# It runs every updater even after a failure and returns one aggregate status.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -14,7 +14,7 @@ The pack fetches skills directly from their official upstream repositories and p
 | [Matt Pocock](https://github.com/mattpocock/skills) | Every non-deprecated skill in the upstream collection |
 | [Anthropic](https://github.com/anthropics/claude-plugins-official) | The official, unmodified `code-simplifier` |
 
-See [Skill sources and distribution strategy](docs/skill-sources.md) for provenance, licenses, and the supply-chain model.
+See [Skill sources and distribution strategy](docs/skill-sources.md) for provenance, licenses, and the supply-chain model. The design note [What `dsh-find-simplifications` teaches this pack](docs/dsh-find-simplifications-review.md) records the evidence-first simplification rubric used here.
 
 ## Quick start
 

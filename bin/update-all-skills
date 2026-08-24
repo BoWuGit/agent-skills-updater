@@ -22,7 +22,6 @@ Install or update this pack's complete skill set in every detected harness:
 Exit statuses:
   0  Every updater succeeded.
   1  At least one updater failed.
-  2  No failures, but an upstream change needs manual review.
 EOF
 }
 
@@ -62,13 +61,11 @@ updaters_dir="$root_dir/updaters"
 labels=()
 results=()
 failed=0
-attention=0
 
 run_update() {
   local label="$1"
-  local attention_code="$2"
   local status
-  shift 2
+  shift
 
   printf '\n==> %s\n' "$label"
   if [[ "$dry_run" -eq 1 ]]; then
@@ -89,9 +86,6 @@ run_update() {
   labels+=("$label")
   if [[ "$status" -eq 0 ]]; then
     results+=("OK")
-  elif [[ "$attention_code" -ge 0 && "$status" -eq "$attention_code" ]]; then
-    results+=("ATTENTION (exit $status)")
-    attention=$((attention + 1))
   else
     results+=("FAILED (exit $status)")
     failed=$((failed + 1))
@@ -100,27 +94,22 @@ run_update() {
 
 run_update \
   "thermo-nuclear-code-quality-review" \
-  -1 \
   "$updaters_dir/update-thermo-nuclear-code-quality-review"
 
 run_update \
   "sim-use" \
-  -1 \
   "$updaters_dir/update-sim-use"
 
 run_update \
   "OpenClaw agent skills (autoreview)" \
-  -1 \
   "$updaters_dir/update-openclaw-agent-skills"
 
 run_update \
   "Matt Pocock skills" \
-  -1 \
   "$updaters_dir/update-mattpocock-skills"
 
 run_update \
   "code-simplifier (official)" \
-  -1 \
   "$updaters_dir/update-code-simplifier"
 
 printf '\nSummary\n'
@@ -131,10 +120,6 @@ done
 if [[ "$failed" -gt 0 ]]; then
   printf '\n%d updater(s) failed.\n' "$failed" >&2
   exit 1
-fi
-if [[ "$attention" -gt 0 ]]; then
-  printf '\n%d updater(s) require manual review.\n' "$attention" >&2
-  exit 2
 fi
 
 if [[ "$dry_run" -eq 1 ]]; then
