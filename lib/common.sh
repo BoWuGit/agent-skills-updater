@@ -32,7 +32,6 @@ agent_skill_targets() {
   [[ -d "$HOME/.claude" ]] && printf '%s\n' "$HOME/.claude/skills"
   [[ -d "$HOME/.codex" ]] && printf '%s\n' "$HOME/.codex/skills"
   [[ -d "$HOME/.config/agents" ]] && printf '%s\n' "$HOME/.config/agents/skills"
-  [[ -d "$HOME/.pi/agent" ]] && printf '%s\n' "$HOME/.pi/agent/skills"
   [[ -d "$HOME/.cursor" ]] && printf '%s\n' "$HOME/.cursor/skills"
   [[ -d "$dsh_home" ]] && printf '%s\n' "$dsh_home/skills"
 }
@@ -82,6 +81,19 @@ link_skill_to_targets() {
       linked=$((linked + 1))
     fi
   done < <(agent_skill_targets)
+
+  # Pi discovers ~/.agents/skills natively. Remove aliases created by older
+  # versions of this updater so Pi does not report every pack skill twice.
+  if [[ -z "${AGENT_SKILLS_TARGETS:-}" ]]; then
+    destination="$HOME/.pi/agent/skills/$skill_name"
+    if [[ -L "$destination" ]]; then
+      existing_source="$(readlink "$destination" || true)"
+      if [[ "$existing_source" == "$source" || "$existing_source" == "$managed_root"/* ]]; then
+        rm "$destination"
+        printf 'removed redundant Pi link: %s\n' "$destination"
+      fi
+    fi
+  fi
 
   printf '  %s: linked to %d target(s), skipped %d conflict(s)\n' \
     "$skill_name" "$linked" "$skipped"

@@ -62,16 +62,18 @@ The canonical upstream checkouts live under:
 ~/.local/share/agent-skills-updater/
 ```
 
-`~/.agents/skills` is always targeted. Harness-specific targets are added when their configuration parent exists:
+`~/.agents/skills` is always targeted. Pi discovers that shared root natively; other harness-specific targets are added when their configuration parent exists:
 
 | Harness | Skill directory |
 | --- | --- |
 | Claude Code | `~/.claude/skills` |
 | Codex | `~/.codex/skills` |
 | Amp / agents standard | `~/.config/agents/skills` |
-| Pi | `~/.pi/agent/skills` |
+| Pi | `~/.agents/skills` |
 | Cursor | `~/.cursor/skills` |
 | DeepSeek Harness (DSH) | `$DSH_HOME/skills` or `~/.dsh/skills` |
+
+Pi's native `~/.pi/agent/skills` root is intentionally not targeted because Pi would otherwise discover every pack skill twice. Updates remove only redundant Pi symlinks previously created by this pack; user-owned files and directories remain untouched.
 
 DSH also discovers the always-installed `~/.agents/skills` compatibility root. Its native root is linked as well when `$DSH_HOME` (or the default `~/.dsh`) exists, giving DSH its higher-priority `user-dsh` source and supporting custom DSH homes. Declare a custom `DSH_HOME` in the updater config—not only in interactive shell startup—so the macOS LaunchAgent sees it.
 
@@ -138,7 +140,7 @@ Canonical source checkouts and logs are intentionally retained. Remove `~/.local
 
 ## 中文说明
 
-这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它会自动识别 Claude Code、Codex、DeepSeek Harness（DSH）、Pi、Amp、Cursor；DSH 默认安装到 `~/.dsh/skills`，也支持 `$DSH_HOME`。macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
+这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它支持 Claude Code、Codex、DeepSeek Harness（DSH）、Pi、Amp、Cursor；Pi 直接使用公共的 `~/.agents/skills`，避免与 `~/.pi/agent/skills` 重复冲突；DSH 默认安装到 `~/.dsh/skills`，也支持 `$DSH_HOME`。macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
 
 ## Development
 

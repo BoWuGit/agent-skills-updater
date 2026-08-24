@@ -135,7 +135,15 @@ git -C "$matt_repo" add .
 git -C "$matt_repo" commit -qm fixture
 
 pack_home="$tmp_dir/pack-home"
-mkdir -p "$pack_home/.claude" "$pack_home/.codex" "$pack_home/.dsh"
+legacy_pi_source="$pack_home/.local/share/agent-skills-updater/sources/legacy/fixture-skill"
+mkdir -p \
+  "$pack_home/.claude" \
+  "$pack_home/.codex" \
+  "$pack_home/.dsh" \
+  "$pack_home/.pi/agent/skills" \
+  "$legacy_pi_source"
+cp "$matt_repo/skills/engineering/fixture-skill/SKILL.md" "$legacy_pi_source/SKILL.md"
+ln -s "$legacy_pi_source" "$pack_home/.pi/agent/skills/fixture-skill"
 HOME="$pack_home" \
 DSH_HOME='   ' \
 THERMO_SKILL_URL="file://$fixture_root/thermo-SKILL.md" \
@@ -160,6 +168,18 @@ for target in \
   [[ -L "$target/code-simplifier" ]]
   grep -q '^model: opus$' "$target/code-simplifier/SKILL.md"
   [[ ! -e "$target/old-skill" ]]
+done
+
+# Pi scans ~/.agents/skills itself. The pack must not create duplicate native
+# aliases, and it cleans aliases left by older versions of the updater.
+for skill in \
+  thermo-nuclear-code-quality-review \
+  sim-use \
+  autoreview \
+  fixture-skill \
+  code-simplifier; do
+  [[ ! -e "$pack_home/.pi/agent/skills/$skill" ]]
+  [[ ! -L "$pack_home/.pi/agent/skills/$skill" ]]
 done
 "$update_command" --dry-run >/dev/null
 
