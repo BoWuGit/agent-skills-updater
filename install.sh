@@ -116,7 +116,7 @@ if [[ "$install_sim_use_binary" -eq 1 ]]; then
   fi
   brew tap lycorp-jp/tap
   if brew list --formula lycorp-jp/tap/sim-use >/dev/null 2>&1; then
-    brew upgrade lycorp-jp/tap/sim-use || true
+    brew upgrade lycorp-jp/tap/sim-use
   else
     brew install lycorp-jp/tap/sim-use
   fi

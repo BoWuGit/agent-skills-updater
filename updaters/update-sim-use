@@ -6,13 +6,62 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/../lib/common.sh"
 
 url="${SIM_USE_REPO_URL:-https://github.com/lycorp-jp/sim-use.git}"
-ref="${SIM_USE_REF:-main}"
+binary_update="${SIM_USE_BINARY_UPDATE:-auto}"
+formula="lycorp-jp/tap/sim-use"
+
+case "$binary_update" in
+  auto|install|off)
+    ;;
+  *)
+    printf 'Invalid SIM_USE_BINARY_UPDATE: %s (expected auto, install, or off)\n' \
+      "$binary_update" >&2
+    exit 2
+    ;;
+esac
+
+brew_managed=0
+if command -v brew >/dev/null 2>&1 && \
+  brew list --formula "$formula" >/dev/null 2>&1; then
+  brew_managed=1
+fi
+
+if [[ "$binary_update" != "off" && "$brew_managed" -eq 1 ]]; then
+  printf 'Updating Homebrew sim-use CLI before its bundled skill...\n'
+  brew upgrade "$formula"
+elif [[ "$binary_update" == "install" ]]; then
+  if ! command -v brew >/dev/null 2>&1; then
+    printf 'Homebrew is required when SIM_USE_BINARY_UPDATE=install.\n' >&2
+    exit 1
+  fi
+  brew tap lycorp-jp/tap
+  brew install "$formula"
+fi
+
+binary_path="$(command -v sim-use 2>/dev/null || true)"
+binary_version_output=""
+if [[ -n "$binary_path" ]]; then
+  binary_version_output="$(sim-use --version 2>/dev/null || true)"
+fi
+
 repository="${SIM_USE_REPO:-$(agent_skills_source_home)/sim-use}"
-revision="$(update_shallow_checkout "$repository" "$url" "$ref")"
 source_dir="$repository/skills/sim-use"
+source_description="$url"
+ref="${SIM_USE_REF:-main}"
+
+if [[ -n "$binary_path" && -z "${SIM_USE_REF:-}" && -z "${SIM_USE_REPO_URL:-}" ]]; then
+  # Use the official installation interface so the skill always comes from the
+  # same release payload as the executable that agents will invoke.
+  mkdir -p "$repository/skills"
+  sim-use init --dest "$repository/skills" --force
+  source_description="$binary_path (bundled skill)"
+  ref="bundled"
+  revision="${binary_version_output:-unknown version}"
+else
+  revision="$(update_shallow_checkout "$repository" "$url" "$ref")"
+fi
 
 if [[ ! -f "$source_dir/SKILL.md" ]]; then
-  printf 'sim-use checkout has no skills/sim-use/SKILL.md\n' >&2
+  printf 'sim-use skill source has no SKILL.md: %s\n' "$source_dir" >&2
   exit 1
 fi
 
@@ -20,12 +69,13 @@ python3 -m py_compile "$source_dir/scripts/preflight.py"
 find "$source_dir" -type d -name __pycache__ -prune -exec rm -rf {} +
 
 printf 'sim-use\n'
-printf '  source: %s\n' "$url"
+printf '  source: %s\n' "$source_description"
+printf '  ref: %s\n' "$ref"
 printf '  revision: %s\n' "$revision"
 link_skill_to_targets "$source_dir" sim-use
 
-if command -v sim-use >/dev/null 2>&1; then
-  printf '  binary: %s (%s)\n' "$(command -v sim-use)" "$(sim-use --version 2>/dev/null || printf 'unknown version')"
+if [[ -n "$binary_path" ]]; then
+  printf '  binary: %s (%s)\n' "$binary_path" "${binary_version_output:-unknown version}"
 else
   printf '  warning: sim-use CLI is not installed; see README installation options.\n' >&2
 fi

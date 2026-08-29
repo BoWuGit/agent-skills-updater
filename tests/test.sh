@@ -104,8 +104,72 @@ description: Test fixture.
 ---
 EOF
 printf 'print("fixture")\n' >"$sim_repo/skills/sim-use/scripts/preflight.py"
+printf 'release skill\n' >"$sim_repo/skills/sim-use/release-marker"
 git -C "$sim_repo" add .
 git -C "$sim_repo" commit -qm fixture
+git -C "$sim_repo" tag v0.14.0
+bundled_sim_skill="$fixture_root/bundled-sim-use"
+cp -R "$sim_repo/skills/sim-use" "$bundled_sim_skill"
+printf 'main-only skill\n' >"$sim_repo/skills/sim-use/main-marker"
+git -C "$sim_repo" add .
+git -C "$sim_repo" commit -qm main-only-skill
+
+# The sim-use updater upgrades an installed Homebrew CLI and delegates Skill
+# installation to that binary. Updating main alone would expose a newer command contract.
+paired_home="$tmp_dir/paired-home"
+paired_bin="$tmp_dir/paired-bin"
+paired_brew_log="$tmp_dir/paired-brew.log"
+paired_sim_log="$tmp_dir/paired-sim-use.log"
+mkdir -p "$paired_bin" "$paired_home/skills"
+cat >"$paired_bin/sim-use" <<EOF
+#!/usr/bin/env bash
+printf '%s\\n' "\$*" >> "$paired_sim_log"
+if [[ "\$1" == "--version" ]]; then
+  printf '0.14.0\\n'
+  exit 0
+fi
+if [[ "\$1" == "init" && "\$2" == "--dest" && "\$4" == "--force" ]]; then
+  rm -rf "\$3/sim-use"
+  mkdir -p "\$3"
+  cp -R "$bundled_sim_skill" "\$3/sim-use"
+  exit 0
+fi
+exit 4
+EOF
+cat >"$paired_bin/brew" <<EOF
+#!/usr/bin/env bash
+printf '%s\\n' "\$*" >> "$paired_brew_log"
+if [[ "\$*" == "list --formula lycorp-jp/tap/sim-use" ]]; then
+  exit 0
+fi
+if [[ "\$*" == "upgrade lycorp-jp/tap/sim-use" ]]; then
+  exit "\${FAKE_BREW_UPGRADE_STATUS:-0}"
+fi
+exit 4
+EOF
+chmod +x "$paired_bin/sim-use" "$paired_bin/brew"
+HOME="$paired_home" \
+PATH="$paired_bin:$PATH" \
+AGENT_SKILLS_DATA_HOME="$paired_home/data" \
+AGENT_SKILLS_TARGETS="$paired_home/skills" \
+  "$repo_root/updaters/update-sim-use" >/dev/null
+grep -Fxq 'list --formula lycorp-jp/tap/sim-use' "$paired_brew_log"
+grep -Fxq 'upgrade lycorp-jp/tap/sim-use' "$paired_brew_log"
+grep -Fxq "init --dest $paired_home/data/sources/sim-use/skills --force" "$paired_sim_log"
+[[ -L "$paired_home/skills/sim-use" ]]
+[[ -f "$paired_home/skills/sim-use/release-marker" ]]
+[[ ! -e "$paired_home/skills/sim-use/main-marker" ]]
+
+failed_pair_home="$tmp_dir/failed-pair-home"
+failed_pair_status=0
+HOME="$failed_pair_home" \
+PATH="$paired_bin:$PATH" \
+AGENT_SKILLS_DATA_HOME="$failed_pair_home/data" \
+AGENT_SKILLS_TARGETS="$failed_pair_home/skills" \
+FAKE_BREW_UPGRADE_STATUS=9 \
+  "$repo_root/updaters/update-sim-use" >/dev/null 2>&1 || failed_pair_status=$?
+[[ "$failed_pair_status" -eq 9 ]]
+[[ ! -e "$failed_pair_home/data/sources/sim-use" ]]
 
 openclaw_repo="$fixture_root/openclaw"
 create_git_fixture "$openclaw_repo"
@@ -149,6 +213,8 @@ DSH_HOME='   ' \
 THERMO_SKILL_URL="file://$fixture_root/thermo-SKILL.md" \
 AGENT_SKILLS_CURL_PROTOCOLS='=https,file' \
 SIM_USE_REPO_URL="$sim_repo" \
+SIM_USE_REF=main \
+SIM_USE_BINARY_UPDATE=off \
 OPENCLAW_SKILLS_REPO_URL="$openclaw_repo" \
 MATTPOCOCK_SKILLS_REPO_URL="$matt_repo" \
 CODE_SIMPLIFIER_SKILL_URL="file://$fixture_root/code-simplifier.md" \

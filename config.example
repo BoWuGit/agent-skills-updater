@@ -14,7 +14,15 @@
 # Disabled by default to avoid destroying local work.
 # export AGENT_SKILLS_FORCE=1
 
+# sim-use defaults to "auto": upgrade an existing Homebrew formula, never
+# install it implicitly, then use `sim-use init` to install the Skill bundled
+# with that executable. Use "install" to allow initial formula installation or
+# "off" to leave the binary untouched.
+# export SIM_USE_BINARY_UPDATE=auto
+
 # Pin upstream refs for reproducible installation instead of tracking main.
+# An explicit SIM_USE_REF or SIM_USE_REPO_URL opts out of bundled sim-use Skill
+# installation and returns to direct Git sourcing.
 # export SIM_USE_REF="<commit-or-tag>"
 # export OPENCLAW_SKILLS_REF="<commit-or-tag>"
 # export MATTPOCOCK_SKILLS_REF="<commit-or-tag>"

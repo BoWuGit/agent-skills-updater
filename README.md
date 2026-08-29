@@ -45,7 +45,7 @@ Reload or restart your agent harnesses after the first installation.
 # Schedule at 08:30 instead
 ./install.sh --hour 8 --minute 30
 
-# Also install the sim-use CLI through Homebrew
+# Also install the sim-use CLI through Homebrew; later scheduled runs keep it updated
 ./install.sh --with-sim-use-binary
 
 # Explicitly replace conflicting same-name skills
@@ -92,6 +92,8 @@ update-all-skills --dry-run
 
 The runner is fail-late: all independent sources are attempted even if one fails.
 
+The `sim-use` updater treats the Homebrew CLI and its bundled skill as one release pair. When the `lycorp-jp/tap/sim-use` formula is already installed, it upgrades the CLI first and then delegates skill installation to the official `sim-use init` command, so the executable supplies its own matching Skill payload. A failed CLI upgrade stops only the sim-use updater before it changes the skill; the other independent skill sources still run. It never installs the formula implicitly—use `./install.sh --with-sim-use-binary` for the initial installation.
+
 | Status | Meaning | Scheduled notification |
 | --- | --- | --- |
 | `0` | Every updater succeeded | None |
@@ -123,7 +125,7 @@ Run the scheduled wrapper immediately:
 
 `~/.config/agent-skills-updater/config` is a local shell configuration file. Use it to select targets, opt into conflict replacement, or pin upstream refs to commits/tags. See [`config.example`](config.example).
 
-The defaults track upstream `main` branches so skills stay current. For sensitive or reproducible environments, pin revisions and review skill changes before using them.
+Most defaults track upstream `main` branches so skills stay current. sim-use instead installs the Skill bundled inside the local CLI to keep its command contract synchronized. Setting `SIM_USE_REF` or `SIM_USE_REPO_URL` explicitly opts into direct Git sourcing and bypasses that pairing. Set `SIM_USE_BINARY_UPDATE=off` to disable automatic upgrades of an already-installed Homebrew formula, or `SIM_USE_BINARY_UPDATE=install` to let the updater install it when absent. For sensitive or reproducible environments, pin revisions and review skill changes before using them.
 
 ## Uninstall automation
 
@@ -140,7 +142,7 @@ Canonical source checkouts and logs are intentionally retained. Remove `~/.local
 
 ## 中文说明
 
-这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它支持 Claude Code、Codex、DeepSeek Harness（DSH）、Pi、Amp、Cursor；Pi 直接使用公共的 `~/.agents/skills`，避免与 `~/.pi/agent/skills` 重复冲突；DSH 默认安装到 `~/.dsh/skills`，也支持 `$DSH_HOME`。macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
+这个仓库现在不只是自动更新框架，而是一套可以直接安装的 Skills 组合。运行 `./install.sh` 后，会从各自官方上游获取 `thermo-nuclear-code-quality-review`、`sim-use`、OpenClaw `autoreview`、Matt Pocock 的全部非废弃 Skills，以及 Anthropic 未修改的原版 `code-simplifier`。它支持 Claude Code、Codex、DeepSeek Harness（DSH）、Pi、Amp、Cursor；Pi 直接使用公共的 `~/.agents/skills`，避免与 `~/.pi/agent/skills` 重复冲突；DSH 默认安装到 `~/.dsh/skills`，也支持 `$DSH_HOME`。已通过 Homebrew 安装的 sim-use CLI 会先升级，再由官方 `sim-use init` 安装该二进制内置的 Skill，避免命令与文档错配。macOS 上默认每天 10:00 自动更新，成功时保持安静，失败或需要人工 review 时才通知。
 
 ## Development
 
