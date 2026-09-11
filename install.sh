@@ -95,9 +95,12 @@ mkdir -p "$staging/bin"
 cp "$repo_root/bin/update-all-skills" "$staging/bin/"
 cp "$repo_root/bin/install-launch-agent" "$staging/bin/"
 cp "$repo_root/bin/run-scheduled-update" "$staging/bin/"
+# Keep this compatibility copy even with --no-schedule: an existing LaunchAgent
+# may already reference it from an earlier installation.
+cp "$repo_root/bin/run-scheduled-update" "$staging/"
 cp -R "$repo_root/lib" "$staging/"
 cp -R "$repo_root/updaters" "$staging/"
-chmod 0755 "$staging/bin/"* "$staging/updaters/"*
+chmod 0755 "$staging/run-scheduled-update" "$staging/bin/"* "$staging/updaters/"*
 
 rm -f "$update_link"
 rm -rf "$runtime_root"

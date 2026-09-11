@@ -264,8 +264,21 @@ if printf '%s\n' "$custom_targets" | grep -Fxq "$pack_home/.dsh/skills"; then
   exit 1
 fi
 
-# Reinstalling a managed pack is idempotent and does not require --force.
+# Reinstalling with --no-schedule must not break an already-installed
+# LaunchAgent by deleting the executable referenced by its plist.
+HOME="$pack_home" \
+  "$pack_home/.local/libexec/agent-skills-updater/bin/install-launch-agent" \
+  --hour 7 \
+  --minute 5 \
+  --update-command "$update_command" \
+  --no-load \
+  --no-test-notification >/dev/null
 HOME="$pack_home" "$repo_root/install.sh" --no-schedule --no-update >/dev/null
+scheduled_program="$pack_home/.local/libexec/agent-skills-updater/run-scheduled-update"
+if [[ ! -x "$scheduled_program" ]]; then
+  printf 'Reinstall deleted the LaunchAgent executable: %s\n' "$scheduled_program" >&2
+  exit 1
+fi
 [[ -x "$update_command" ]]
 
 if grep -R -E -n \
