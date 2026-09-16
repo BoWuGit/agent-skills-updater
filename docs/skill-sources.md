@@ -1,6 +1,8 @@
 # Skill sources and distribution strategy
 
-This pack installs the following opinionated set. Third-party skills are fetched directly from their official repositories at install/update time; they are not vendored here. This keeps provenance visible and avoids stale forks.
+This pack installs the following opinionated set by default. `AGENT_SKILLS_DISABLED` excludes selected skills from managed harness links without modifying their upstream payloads; see [Configuration and pinning](../README.md#configuration-and-pinning). Third-party skills are fetched directly from their official repositories at install/update time; they are not vendored here. This keeps provenance visible and avoids stale forks.
+
+See the [skill context audit](skill-context-audit.md) for the rationale behind one local opt-out profile. It is not a change to the pack's defaults.
 
 | Installed skill(s) | Official source | License | Strategy |
 | --- | --- | --- | --- |

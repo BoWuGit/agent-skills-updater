@@ -16,6 +16,8 @@ done < <(find \
   "$repo_root/examples" \
   -type f)
 bash -n "$repo_root/install.sh"
+bash -n "$repo_root/tests/test-disabled-skills.sh"
+bash "$repo_root/tests/test-disabled-skills.sh"
 
 make_command_fixture() {
   local name="$1"
@@ -283,6 +285,7 @@ fi
 
 if grep -R -E -n \
   --exclude='test.sh' \
+  --exclude='.git' \
   --exclude-dir='.git' \
   '/Users/|BEGIN (RSA |OPENSSH )?PRIVATE KEY|gh[opsu]_[A-Za-z0-9]' \
   "$repo_root"; then

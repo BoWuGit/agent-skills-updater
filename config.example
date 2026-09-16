@@ -10,6 +10,13 @@
 # export DSH_HOME="$HOME/.dsh"
 # export AGENT_SKILLS_TARGETS="$HOME/.claude/skills:$HOME/.codex/skills"
 
+# Whitespace-separated exact skill names to disable (case-sensitive, no globs).
+# Empty/unset enables all skills. On update, disabled skills lose only managed
+# symlinks in configured/detected targets and the old default Pi skill root.
+# Unmanaged links/files/directories survive even with FORCE=1. Upstream payloads
+# are still fetched unchanged. Remove a name and update again to re-enable it.
+# export AGENT_SKILLS_DISABLED=""
+
 # Replace same-name skills that were not installed by this pack.
 # Disabled by default to avoid destroying local work.
 # export AGENT_SKILLS_FORCE=1

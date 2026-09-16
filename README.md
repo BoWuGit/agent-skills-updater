@@ -123,9 +123,21 @@ Run the scheduled wrapper immediately:
 
 ## Configuration and pinning
 
-`~/.config/agent-skills-updater/config` is a local shell configuration file. Use it to select targets, opt into conflict replacement, or pin upstream refs to commits/tags. See [`config.example`](config.example).
+`~/.config/agent-skills-updater/config` is a local shell configuration file. Use it to select targets, disable individual skills, opt into conflict replacement, or pin upstream refs to commits/tags. See [`config.example`](config.example).
 
 Most defaults track upstream `main` branches so skills stay current. sim-use instead installs the Skill bundled inside the local CLI to keep its command contract synchronized. Setting `SIM_USE_REF` or `SIM_USE_REPO_URL` explicitly opts into direct Git sourcing and bypasses that pairing. Set `SIM_USE_BINARY_UPDATE=off` to disable automatic upgrades of an already-installed Homebrew formula, or `SIM_USE_BINARY_UPDATE=install` to let the updater install it when absent. For sensitive or reproducible environments, pin revisions and review skill changes before using them.
+
+### Disable individual skills
+
+Set `AGENT_SKILLS_DISABLED` in the config to whitespace-separated **exact skill names** (case-sensitive; no glob patterns). Empty or unset—the default—enables all skills. For example, using placeholder names:
+
+```bash
+export AGENT_SKILLS_DISABLED="skill-name another-skill-name"
+```
+
+Run `update-all-skills` to apply the selection, then reload your harnesses. When each skill reaches the linking step, a disabled skill is not linked; only managed symlinks are removed from the configured targets (or auto-detected targets when no override is set), plus its legacy `~/.pi/agent/skills` alias even with custom targets. Managed means a symlink pointing to that skill's source or beneath the updater's data directory. Unmanaged symlinks, files, and directories are preserved, even with `AGENT_SKILLS_FORCE=1` or `--force`.
+
+This controls harness exposure, not fetching: upstream payloads remain unchanged and continue to update. It does not remove independent installations or links in other, untargeted directories. Remove a name from the list and update again to re-enable it under the normal conflict rules.
 
 ## Uninstall automation
 

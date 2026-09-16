@@ -42,6 +42,26 @@ link_skill_to_targets() {
   local managed_root
   managed_root="$(agent_skills_data_home)"
 
+  # Match literal names separated by whitespace, not substrings or globs.
+  # Cleanup must work even when the old source no longer exists, and must
+  # never apply FORCE to user-owned destinations.
+  if [[ "${AGENT_SKILLS_DISABLED:-}" =~ (^|[[:space:]])"$skill_name"($|[[:space:]]) ]]; then
+    local disabled_target disabled_destination disabled_source
+    while IFS= read -r disabled_target; do
+      [[ -n "$disabled_target" ]] || continue
+      disabled_destination="$disabled_target/$skill_name"
+      if [[ -L "$disabled_destination" ]]; then
+        disabled_source="$(readlink "$disabled_destination" || true)"
+        if [[ "$disabled_source" == "$source" || "$disabled_source" == "$managed_root"/* ]]; then
+          rm "$disabled_destination"
+          printf 'removed disabled skill link: %s\n' "$disabled_destination"
+        fi
+      fi
+    done < <(agent_skill_targets; printf '%s\n' "$HOME/.pi/agent/skills")
+    printf '  %s: disabled (skipping linking)\n' "$skill_name"
+    return 0
+  fi
+
   if [[ ! -f "$source/SKILL.md" ]]; then
     printf 'Skill source has no SKILL.md: %s\n' "$source" >&2
     return 1
