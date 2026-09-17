@@ -96,6 +96,30 @@ model: opus
 # Code simplifier fixture
 EOF
 
+# A stale package-manager curl must not shadow the OS-provided curl. This can
+# happen after migrating an Intel MacPorts installation to Apple Silicon.
+broken_curl_bin="$tmp_dir/broken-curl-bin"
+broken_curl_marker="$tmp_dir/broken-curl-called"
+curl_test_home="$tmp_dir/curl-test-home"
+mkdir -p "$broken_curl_bin"
+cat >"$broken_curl_bin/curl" <<EOF
+#!/usr/bin/env bash
+touch "$broken_curl_marker"
+exit 86
+EOF
+chmod +x "$broken_curl_bin/curl"
+HOME="$curl_test_home" \
+PATH="$broken_curl_bin:$PATH" \
+AGENT_SKILLS_DATA_HOME="$curl_test_home/data" \
+AGENT_SKILLS_TARGETS="$curl_test_home/skills" \
+AGENT_SKILLS_CURL_PROTOCOLS='=https,file' \
+THERMO_SKILL_URL="file://$fixture_root/thermo-SKILL.md" \
+  "$repo_root/updaters/update-thermo-nuclear-code-quality-review" >/dev/null
+if [[ -e "$broken_curl_marker" ]]; then
+  echo 'The updater used a shadowing package-manager curl.' >&2
+  exit 1
+fi
+
 sim_repo="$fixture_root/sim-use"
 create_git_fixture "$sim_repo"
 mkdir -p "$sim_repo/skills/sim-use/scripts"

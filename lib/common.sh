@@ -8,6 +8,25 @@ agent_skills_source_home() {
   printf '%s/sources\n' "$(agent_skills_data_home)"
 }
 
+agent_skills_curl() {
+  local curl_command="${AGENT_SKILLS_CURL:-}"
+
+  # Prefer the OS-provided binary. Package-manager directories can contain
+  # stale executables after an architecture or macOS upgrade.
+  if [[ -z "$curl_command" && -x /usr/bin/curl ]]; then
+    curl_command=/usr/bin/curl
+  elif [[ -z "$curl_command" ]]; then
+    curl_command="$(command -v curl 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$curl_command" ]]; then
+    printf 'curl is required but was not found.\n' >&2
+    return 127
+  fi
+
+  "$curl_command" "$@"
+}
+
 agent_skill_targets() {
   if [[ -n "${AGENT_SKILLS_TARGETS:-}" ]]; then
     local configured_targets=()

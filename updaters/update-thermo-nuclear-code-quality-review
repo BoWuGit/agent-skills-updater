@@ -11,7 +11,7 @@ tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/thermo-skill.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 candidate="$tmp_dir/SKILL.md"
 
-curl \
+agent_skills_curl \
   --fail \
   --silent \
   --show-error \

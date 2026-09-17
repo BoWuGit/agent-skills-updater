@@ -12,7 +12,7 @@ tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/code-simplifier.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 candidate="$tmp_dir/SKILL.md"
 
-curl \
+agent_skills_curl \
   --fail \
   --silent \
   --show-error \
